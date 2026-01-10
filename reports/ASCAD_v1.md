@@ -1,15 +1,26 @@
-<img src="images/sca.png" width=600><br>
-*Rys. 1: Schemat stanowiska pomiarowego [[1](https://www.researchgate.net/publication/372602727_PG-CAS_Pro-Active_EM-SCA_Probe_Detection_using_Switched-Capacitor_based_Patterned-Ground_Co-planar_Capacitive_Asymmetry_Sensing)].*
+# Wprowadzenie do datasetu ASCAD v1
+
+![alt](../figures/sca.png)
+*Fig. 1: Schemat stanowiska pomiarowego [[1](https://www.researchgate.net/publication/372602727_PG-CAS_Pro-Active_EM-SCA_Probe_Detection_using_Switched-Capacitor_based_Patterned-Ground_Co-planar_Capacitive_Asymmetry_Sensing)].*
 
 Surowe dane zawierają 100 000 próbek. Użyta przeze mnie wersja to wycięte *okno zainteresowania* (tzw. *ślad* o długości 700 próbek), w którym procesor wykonuje operację S-box. Zbiór ten jest powszechnie stosowany jako benchmark dla modeli uczenia głębokiego, jednak celem mojego projektu jest weryfikacja wyników osiągalnych przy użyciu klasycznego uczenia maszynowego.
 
 Każda próbka w śladzie reprezentuje amplitudę pola elektromagnetycznego zmierzoną oscyloskopem w konkretnym cyklu zegara procesora (wartości znormalizowane w zakresie od -128 do 127).
 
-<img src="images/trace_00.png" width=900><br>
+![alt](../figures/sample_traces.png)
+*Fig. 2: Przykładowe ślady*
 
-<img src="images/trace_FF.png" width=900><br>
-*Rys. 2: Przykładowe ślady*
+## S-box
 
+Funkcja S-box to pierwsza nieliniowa operacja w algorytmie AES. Polega ona na podmianie bajtu tekstu jawnego $d$, zmieszanego z bajtem klucza $k$, na podstawie ustalonej tabeli podstawień:
+
+$$
+z = \mathrm{Sbox}(d \oplus k)
+$$
+
+*Rys. 3: Lookup table [[1](https://en.wikipedia.org/wiki/Rijndael_S-box)]*
+
+Celujemy w operację S-box, ponieważ jest to punkt, w którym klucz jest po raz pierwszy bezpośrednio mieszany z danymi wejściowymi. Nieliniowość tej operacji ułatwia statystyczne odróżnienie poprawnego klucza od błędnego.
 
 ## Maskowanie
 

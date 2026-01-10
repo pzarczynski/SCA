@@ -1,4 +1,3 @@
-import h5py
 import numpy as np
 
 SBOX_LOOKUP = np.array([
@@ -20,37 +19,25 @@ SBOX_LOOKUP = np.array([
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 ])
 
-HW_LOOKUP = np.array([bin(x).count("1") for x in range(256)], dtype=np.uint8)
-
 
 def mean_rank(probs, plaintexts, keys):
     assert not np.any(np.isnan(probs))
-
     n_traces = probs.shape[0]
     log_probs = np.log(probs + 1e-8)
+    key_space = np.arange(256, dtype=np.uint8)
 
-    key_space = np.arange(256, dtype=np.uint16)
-    z_table = SBOX_LOOKUP[np.bitwise_xor(plaintexts[:, None], key_space)]
+    candidates = np.bitwise_xor(plaintexts[:, None], key_space[None, :])
+    z_table = SBOX_LOOKUP[candidates]
 
     contrib = log_probs[np.arange(n_traces)[:, None], z_table]
-
     accumulated = np.cumsum(contrib, axis=0)
 
     correct = accumulated[np.arange(n_traces), keys]
     ranks = np.sum(accumulated > correct[:, None], axis=1) + 1
-
     return ranks
 
 
-def load_data(path, subset):
-    with h5py.File(path, 'r') as f:
-        X = f[f'{subset}_traces/traces'][:]
-        y = f[f'{subset}_traces/labels'][:]
-        metadata = f[f'{subset}_traces/metadata'][:]
-
-    plaintexts = metadata['plaintext'][:, 2].astype(np.uint8)
-    keys = metadata['key'][:, 2].astype(np.uint8)
-    return X, y, plaintexts, keys
+HW_LOOKUP = np.array([bin(x).count("1") for x in range(256)], dtype=np.uint8)
 
 
 def hamming_weight(arr):

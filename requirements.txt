@@ -1,2 +1,7 @@
+h5py
+matplotlib
+numpy
+pandas
 requests
+seaborn
 tqdm
