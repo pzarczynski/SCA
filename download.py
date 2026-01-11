@@ -20,16 +20,18 @@ def fetch_url(url, out: str, block_size=1024**2):
             f.write(data)
 
 
-def download_dataset(name: str, out_dir: str) -> str:
+def download_dataset(ds: str, out: str) -> str:
+    if out is None: out = os.path.join(os.getcwd(), ds)
+
+    out_dir = os.path.dirname(out)
     os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, name)
-    fetch_url((URL + name), path)
+    fetch_url((URL + ds), out)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--dataset", type=str, default="ASCAD.h5")
-    parser.add_argument("-o", "--out-dir", type=str, default=".")
+    parser.add_argument("-d", "--dataset", type=str, default="v1/variable/desync0.h5")
+    parser.add_argument("-o", "--out", type=str, default="data/raw/v1_var_desync0.h5")
     args = parser.parse_args()
 
-    download_dataset(args.dataset, args.out_dir)
+    download_dataset(args.dataset, args.out)

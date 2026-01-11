@@ -1,14 +1,19 @@
-# Wprowadzenie do datasetu ASCAD v1
+# Wprowadzenie do datasetu ASCAD v1 variable key
 
 ![alt](../figures/sca.png)
+
 *Fig. 1: Schemat stanowiska pomiarowego [[1](https://www.researchgate.net/publication/372602727_PG-CAS_Pro-Active_EM-SCA_Probe_Detection_using_Switched-Capacitor_based_Patterned-Ground_Co-planar_Capacitive_Asymmetry_Sensing)].*
 
-Surowe dane zawierają 100 000 próbek. Użyta przeze mnie wersja to wycięte *okno zainteresowania* (tzw. *ślad* o długości 700 próbek), w którym procesor wykonuje operację S-box. Zbiór ten jest powszechnie stosowany jako benchmark dla modeli uczenia głębokiego, jednak celem mojego projektu jest weryfikacja wyników osiągalnych przy użyciu klasycznego uczenia maszynowego.
+Surowe dane zawierają 300 000 próbek (200 000 w zbiorze treningowym + 100 000 w zbiorze testowym). Użyta przeze mnie wersja to wycięte *okno zainteresowania* (tzw. *ślad* o długości 1400 próbek), w którym procesor wykonuje operację S-box. Zbiór ten jest powszechnie stosowany jako benchmark dla modeli uczenia głębokiego, jednak celem mojego projektu jest weryfikacja wyników osiągalnych przy użyciu klasycznego uczenia maszynowego.
 
 Każda próbka w śladzie reprezentuje amplitudę pola elektromagnetycznego zmierzoną oscyloskopem w konkretnym cyklu zegara procesora (wartości znormalizowane w zakresie od -128 do 127).
 
 ![alt](../figures/sample_traces.png)
 *Fig. 2: Przykładowe ślady*
+
+## Podział danych
+
+Dataset ASCAD dzieli się na arbitralnie zdefiniowane podzbiory `Profiling` i `Attack`, traktowane, odpowiednio, jako zbiór treningowy i testowy. Jako że we [wstępnej analizie danych](notebooks/01_initial_eda.ipynb) okazało się, że klasy w zbiorze `Profiling` są zbalansowane, do walidacji będę wykorzystywał zwykły `KFold` do podziału na zbiór treningowy i walidacyjny.
 
 ## S-box
 
@@ -20,7 +25,7 @@ $$
 
 *Rys. 3: Lookup table [[1](https://en.wikipedia.org/wiki/Rijndael_S-box)]*
 
-Celujemy w operację S-box, ponieważ jest to punkt, w którym klucz jest po raz pierwszy bezpośrednio mieszany z danymi wejściowymi. Nieliniowość tej operacji ułatwia statystyczne odróżnienie poprawnego klucza od błędnego.
+Celujemy w operację S-box, ponieważ jest to punkt, w którym klucz jest po raz pierwszy bezpośrednio mieszany z danymi wejściowymi. Nieliniowość tej operacji ułatwia statystyczne odróżnienie poprawnego klucza od błędnego. Z racji tego, że operacja ta jest łatwo odwracalna, mogę czasami używać słów "etykieta" i "klucz" zamiennie.
 
 ## Maskowanie
 
@@ -31,5 +36,3 @@ z' = \mathrm{Sbox}'((d \oplus k) \oplus r_{in}) \oplus r_{out}
 $$
 
 Dzięki temu zabiegowi zarówno szyna adresowa, jak i szyna danych są zabezpieczone, ponieważ z punktu widzenia zewnętrznego obserwatora wartości te wyglądają jak prawie losowy szum. Ani niezemaskowana wartość $d \oplus k$, ani czysty wynik $z$ nie pojawiają się w żadnym momencie w rejestrze procesora.
-
----

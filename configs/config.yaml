@@ -1,0 +1,10 @@
+defaults:
+  - experiment: qda
+  - _self_
+
+seed: 42
+data: 
+  path: 'data/raw/v1_var_desync0.h5'
+  test: false
+
+cv_splits: 5

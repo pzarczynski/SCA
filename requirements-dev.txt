@@ -1,0 +1,5 @@
+ipykernel
+jupyter
+ipywidgets
+pipreqs
+pipreqsnb
