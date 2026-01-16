@@ -1,31 +1,29 @@
 import argparse
 import os
 
-import requests
+import urllib3
 from tqdm import tqdm
 
-URL = "https://huggingface.co/datasets/zarczynski/ASCAD/resolve/main/"
+DATASET_URL = "https://huggingface.co/datasets/zarczynski/ASCAD/resolve/main/"
 
 
-def fetch_url(url, out: str, block_size=1024**2):
-    r = requests.get(url, stream=True)
-    r.raise_for_status()
-
-    total_size = int(r.headers.get("content-length", 0))
+def fetch_url(url: str, out: str, block_size:int = 1024**2) -> None:
+    resp = urllib3.request("GET", url, preload_content=False)
+    
+    total_size = int(resp.headers.get("content-length", 0))
     n_blocks = (total_size + block_size - 1) // block_size
 
     with open(out, "wb") as f:
-        for data in tqdm(r.iter_content(block_size), total=n_blocks,
-                         unit="MB", ascii=True):
+        for data in tqdm(resp.stream(block_size), total=n_blocks, unit="MB", ascii=True):
             f.write(data)
 
+    resp.release_conn()
 
-def download_dataset(ds: str, out: str) -> str:
-    if out is None: out = os.path.join(os.getcwd(), ds)
 
+def download_dataset(ds: str, out: str) -> None:    
     out_dir = os.path.dirname(out)
     os.makedirs(out_dir, exist_ok=True)
-    fetch_url((URL + ds), out)
+    fetch_url(DATASET_URL + ds, out)
 
 
 if __name__ == "__main__":

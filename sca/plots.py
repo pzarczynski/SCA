@@ -5,8 +5,6 @@ import pandas as pd
 import seaborn as sns
 from scipy import stats
 
-import src.tools as tools
-
 sns.set_theme(style="ticks")
 
 
@@ -40,7 +38,7 @@ def plot_mean(X, sd=3, figsize=(11, 4)):
     ax.plot(x_axis, mean, color="black", linewidth=0.8, label="mean")
     ax.fill_between(x_axis, lower, upper, color="gray", alpha=0.7, label=f"±{sd} std")
 
-    ax.set_xlim(0, X.shape[1]-1)
+    ax.set_xlim(0, X.shape[1] - 1)
     ax.set_xlabel("Feature")
     ax.set_ylabel("Value")
     ax.set_title(f"Mean values with ±{sd} std variation band")
@@ -60,18 +58,22 @@ def features_hist(X, idx, mean=False, figsize=(7, 4)):
     gs = gridspec.GridSpec(1, 2, width_ratios=[9, 1], wspace=0.05, figure=fig)
 
     ax = fig.add_subplot(gs[0, 0])
-    cm = sns.color_palette("viridis", len(idx)+1, as_cmap=True)
+    cm = sns.color_palette("viridis", len(idx) + 1, as_cmap=True)
     norm = plt.Normalize(vmin=0, vmax=max(idx))
 
     for i in idx:
         sns.histplot(
-            X.iloc[:, i], edgecolor='black', discrete=True,
-            color=cm(norm(i)), stat="density", ax=ax,
+            X.iloc[:, i],
+            edgecolor="black",
+            discrete=True,
+            color=cm(norm(i)),
+            stat="density",
+            ax=ax,
         )
         ax.set_xlabel("Value")
         ax.set_ylabel("Density")
 
-    lo, hi = np.percentile(X.iloc[:, idx].values, [1e-3, 100-1e-3])
+    lo, hi = np.percentile(X.iloc[:, idx].values, [1e-3, 100 - 1e-3])
     ax.set_xlim(lo, hi)
 
     if mean:
@@ -98,24 +100,18 @@ def dist_plots(X, figsize=(10, 4)):
     sk = stats.skew(X, axis=0, bias=False)
     kt = stats.kurtosis(X, axis=0, fisher=True, bias=False)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-    sns.histplot(
-        sk, ax=ax1, bins=30, stat="density",
-        color="gray", edgecolor="black"
-    )
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
+    sns.histplot(sk, ax=ax1, bins=30, stat="density", color="gray", edgecolor="black")
     ax1.set_xlabel("Skewness")
     ax1.set_ylabel("Density")
     ax1.set_title("Skewness distribution")
 
-    sns.histplot(
-        kt, ax=ax2, bins=30, stat="density",
-        color="gray", edgecolor="black"
-    )
+    sns.histplot(kt, ax=ax2, bins=30, stat="density", color="gray", edgecolor="black")
     ax2.set_xlabel("Kurtosis")
     ax2.set_ylabel("")
     ax2.set_title("Kurtosis distribution")
 
-    fig.tight_layout()
+    # fig.tight_layout()
     sns.despine(fig)
     return fig
 
@@ -131,21 +127,21 @@ def class_hist(y, figsize=(14, 4)):
     return fig
 
 
-def feature_pearson(
-    X, filter={'t': 0.2, 'p': 0.75},
-    figsize=(6, 4)
-):
+def feature_pearson(X, filter={"t": 0.2, "p": 0.75}, figsize=(6, 4)):
     corr = pd.DataFrame(np.corrcoef(X, rowvar=False))
-    mask = np.mean(np.abs(corr) >= filter['t'], axis=0) >= filter['p']
+    mask = np.mean(np.abs(corr) >= filter["t"], axis=0) >= filter["p"]
     fig, ax = plt.subplots(figsize=figsize)
     sns.heatmap(
-        corr[mask].loc[:, mask], cmap="vlag",
-        center=0, square=True, ax=ax,
+        corr[mask].loc[:, mask],
+        cmap="vlag",
+        center=0,
+        square=True,
+        ax=ax,
     )
-
-    plt.xticks(rotation=90, fontsize=8)
-    plt.yticks(rotation=0, fontsize=8)
-    plt.tight_layout()
+    ax.set_title("Feature Pearson correlation")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=8)
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=8)
+    fig.tight_layout()
     return fig
 
 
@@ -166,14 +162,28 @@ def plot_feature_means(X, y, idx, figsize=(8, 5)):
     cmap = sns.color_palette("viridis", n_colors=len(np.unique(y)), as_cmap=True)
 
     sns.stripplot(
-        data=df, x="feature", y="value", hue="label", jitter=False, alpha=0.7,
-        palette=cmap, size=4, ax=ax,
+        data=df,
+        x="feature",
+        y="value",
+        hue="label",
+        jitter=False,
+        alpha=0.7,
+        palette=cmap,
+        size=4,
+        ax=ax,
     )
 
     sns.boxplot(
-        data=df, x="feature", y="value", color="white",
-        width=0.6, fliersize=0, showcaps=True, boxprops={"zorder": 0},
-        whiskerprops={"linewidth": 0.8}, ax=ax,
+        data=df,
+        x="feature",
+        y="value",
+        color="white",
+        width=0.6,
+        fliersize=0,
+        showcaps=True,
+        boxprops={"zorder": 0},
+        whiskerprops={"linewidth": 0.8},
+        ax=ax,
     )
 
     ax.grid(axis="y", linestyle="-", alpha=0.7)
@@ -195,18 +205,21 @@ def plot_feature_means(X, y, idx, figsize=(8, 5)):
 
 
 def plot_feature_anomalies(
-    df, min_count=50, bins=[-np.inf, 4, 5, 6, 7, 10, np.inf],
+    df,
+    min_count=50,
+    bins=[-np.inf, 4, 5, 6, 7, 10, np.inf],
     labels=["<4σ", "4–5σ", "5–6σ", "6–7σ", "7–10σ", ">10σ"],
-    figsize=(9, 5)
+    figsize=(9, 5),
 ):
     df = df.copy()
     df["Bin"] = pd.cut(df["Z-score"], bins=bins, labels=labels, right=True)
 
-    df_feat = (df
-               .groupby(["Trace", "Bin"], observed=False)
-               .size()
-               .unstack(fill_value=0)
-               .reset_index())
+    df_feat = (
+        df.groupby(["Trace", "Bin"], observed=False)
+        .size()
+        .unstack(fill_value=0)
+        .reset_index()
+    )
 
     df_feat["Total"] = df_feat[labels].sum(axis=1)
     df_feat = df_feat.sort_values("Total", ascending=False)
@@ -236,10 +249,31 @@ def plot_feature_anomalies(
 
 
 def plot_trace_outliers(X, std=4):
-    df, n_outliers = tools.detect_outliers(X, std=std)
+    df, n_outliers = tools.detect_outliers_std(X, std=std)
     fig = plot_mean(X, sd=std)
     ax = fig.gca()
-    sns.scatterplot(data=df, x="Feature", y="Value",
-                    hue="Trace", s=10, legend=False, ax=ax)
+    sns.scatterplot(
+        data=df, x="Feature", y="Value", hue="Trace", s=10, legend=False, ax=ax
+    )
     ax.set_title(f"Mean trace with outliers (n={n_outliers}, std>{std})")
+    return fig
+
+
+def simple_lineplots(
+    x, *y, labels=None, xlabel="", ylabel="", palette="husl", figsize=(10, 5)
+):
+    fig, ax = plt.subplots(figsize=figsize)
+    cmap = sns.color_palette(palette, n_colors=len(y))
+
+    for i, series in enumerate(y):
+        label = labels[i] if labels is not None else None
+        sns.lineplot(x=x, y=series, label=label, color=cmap[i], ax=ax)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+
+    ax.grid(True, linestyle="--", alpha=0.8)
+    sns.despine(ax=ax, trim=True)
+
+    if labels is not None:
+        ax.legend()
     return fig
