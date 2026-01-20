@@ -5,51 +5,48 @@ import pandas as pd
 import seaborn as sns
 from scipy import stats
 
-sns.set_theme(style="ticks")
-
-
-def plot_sample(X, y, byte_value, ax, seed=42):
-    mask = y == byte_value
+def sample_trace(X, y, byte_val, seed=42):
+    mask = y == byte_val
     rng = np.random.default_rng(seed=seed)
     idx = rng.integers(0, np.sum(mask))
     trace = X[mask].iloc[idx]
+    return trace
 
-    ax = sns.lineplot(trace, linewidth=1, ax=ax)
+def labs(ax, xlab="", ylab="", title="", **kw):
+    ax.set_title(title, **kw)
+    ax.set_xlabel(xlab, **kw)
+    ax.set_ylabel(ylab, **kw)
+    return ax
 
-    ax.set_title(f"Sample trace (label = 0x{byte_value:02X}) ")
-    ax.set_xlim(0, len(trace) - 1)
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Value")
+def lim(ax, l):
+    ax.set_xlim(0, l-1)
+    return ax
 
-    ax.grid(True, which="both", linestyle="--", alpha=0.8)
-    sns.despine(ax=ax, right=False)
+def mean_std(X):
+    return X.mean(axis=0), X.std(axis=0)
+
+def std_band(ax, m, std, sd=3):
+    xaxis = np.arange(len(m))
+    lower = m - sd * std
+    upper = m + sd * std
+    ax.fill_between(xaxis, lower, upper, color="gray", alpha=0.7, label=f"±{sd} std")
+    return ax
+
+def filtered_corr(X, t=0.2, p=0.75):
+    corr = pd.DataFrame(np.corrcoef(X, rowvar=False))
+    mask = np.mean(np.abs(corr) >= t, axis=0) >= p
+    return corr[mask].loc[:, mask]
 
 
-def plot_mean(X, sd=3, figsize=(11, 4)):
-    x_axis = np.arange(X.shape[1])
-    mean = X.mean(axis=0)
-    std = X.std(axis=0)
+def ticklabsp(ax, kind, rot=0, fs=14):
+    eval(f"ax.set_{kind}ticklabels(ax.get_{kind}ticklabels(),"
+         f"rotation={rot}, fontsize={fs})")
 
-    lower = mean - sd * std
-    upper = mean + sd * std
 
-    fig, ax = plt.subplots(figsize=figsize)
-
-    ax.plot(x_axis, mean, color="black", linewidth=0.8, label="mean")
-    ax.fill_between(x_axis, lower, upper, color="gray", alpha=0.7, label=f"±{sd} std")
-
-    ax.set_xlim(0, X.shape[1] - 1)
-    ax.set_xlabel("Feature")
-    ax.set_ylabel("Value")
-    ax.set_title(f"Mean values with ±{sd} std variation band")
-
-    ax.grid(True, linestyle="--", alpha=0.8)
-    ax.legend()
-
-    fig.tight_layout()
-    sns.despine(ax=ax, right=False)
+def plot_trace_outliers(X, std=4):
+    df, n_outliers = helpers.detect_outliers_std(X, std=std)
+    
     return fig
-
 
 def features_hist(X, idx, mean=False, figsize=(7, 4)):
     idx = sorted(idx)
@@ -127,22 +124,6 @@ def class_hist(y, figsize=(14, 4)):
     return fig
 
 
-def feature_pearson(X, filter={"t": 0.2, "p": 0.75}, figsize=(6, 4)):
-    corr = pd.DataFrame(np.corrcoef(X, rowvar=False))
-    mask = np.mean(np.abs(corr) >= filter["t"], axis=0) >= filter["p"]
-    fig, ax = plt.subplots(figsize=figsize)
-    sns.heatmap(
-        corr[mask].loc[:, mask],
-        cmap="vlag",
-        center=0,
-        square=True,
-        ax=ax,
-    )
-    ax.set_title("Feature Pearson correlation")
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=8)
-    ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=8)
-    fig.tight_layout()
-    return fig
 
 
 def plot_feature_means(X, y, idx, figsize=(8, 5)):
@@ -248,15 +229,6 @@ def plot_feature_anomalies(
     return fig
 
 
-def plot_trace_outliers(X, std=4):
-    df, n_outliers = tools.detect_outliers_std(X, std=std)
-    fig = plot_mean(X, sd=std)
-    ax = fig.gca()
-    sns.scatterplot(
-        data=df, x="Feature", y="Value", hue="Trace", s=10, legend=False, ax=ax
-    )
-    ax.set_title(f"Mean trace with outliers (n={n_outliers}, std>{std})")
-    return fig
 
 
 def simple_lineplots(
