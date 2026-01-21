@@ -3,8 +3,16 @@ import os
 import h5py
 import numpy as np
 import pandas as pd
+import logging
+from dataclasses import dataclass, field
 
-from numba import njit, prange
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier as RFC
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+import lightgbm as lgb
 
 
 SBOX = np.array([
@@ -27,6 +35,19 @@ SBOX = np.array([
 ], dtype=np.uint8)
 
 
+def pi_score(log_proba, pts, k):
+    z = SBOX[pts ^ k]
+    correct_proba = log_proba[np.arange(len(pts)), z] 
+    return 8 + np.mean(correct_proba)
+
+
+def PI(proba, pts, ks, eps=1e-40):
+    pts, ks = pts.iloc[:, 2], ks.iloc[:, 2]
+    log_proba = np.log2(np.maximum(proba, eps))
+    return np.array([pi_score(log_proba[ks == k], pts[ks == k], k) 
+                     for k in range(256)])
+
+
 def load_data(path: str, as_df=False, attack=False):
     subset = "Attack" if attack else "Profiling"
     
@@ -34,62 +55,143 @@ def load_data(path: str, as_df=False, attack=False):
         X = f[f"{subset}_traces/traces"][:].astype(np.float32)
         y = f[f"{subset}_traces/labels"][:].astype(np.uint8)
         meta = f[f"{subset}_traces/metadata"][:]
-        pts = meta["plaintext"][:, 2].astype(np.uint8)
-        ks = meta["key"][:, 2].astype(np.uint8)
+        pts = meta["plaintext"].astype(np.uint8)
+        ks = meta["key"].astype(np.uint8)
 
-    return X, y, pts, ks
-    
-
-def key_rank(probs, pts, tk, eps=1e-15):
-    n_traces, n_classes = probs.shape
-    log_probs = np.log(np.maximum(probs, eps))
-    ks = np.arange(n_classes)
-    
-    z_hyp = SBOX[pts[:, None] ^ ks[None, :]]
-    acc_probs = np.cumsum(probs[np.arange(n_traces)[:, None], z_hyp], axis=0)
+    if as_df:
+        return (pd.DataFrame(X), pd.Series(y), 
+                pd.DataFrame(pts), pd.DataFrame(ks))
         
-    ranked_keys = np.argsort(-acc_probs, axis=1)
-    return np.where(ranked_keys == tk)[1]
+    return X, y, pts, ks
 
 
-def auc(y, x=None):
-    if x is None:
-        x = np.arange(len(y))
-
-    auc = np.sum(-np.diff(x) * (y[1:] + y[:-1]) * 0.5)
-    ymax = y.max()
-    max_area = ymax * (len(y) - 1)
-    return auc / max_area
-
-
-def sorted_auc(probs, pts, tks):
-    aucs = []
-    for k in range(256):
-        ranks = key_rank(probs[tks == k], pts[tks == k], k)
-        aucs.append(auc(ranks))
-    aucs = np.array(aucs)
-    idx = np.argsort(aucs)
-    return idx, aucs[idx]
-    
-
-def keys_rank(probs, pts, tks):
-    ranks = []
-    for k in range(256):
-        r = key_rank(probs[tks == k], pts[tks == k], k)
-        ranks.append(r)
-    return ranks
-
-
-def sorted_mr(probs, pts, tks):
-    ranks = keys_rank(probs, pts, tks)
-    mr = np.array([np.mean(r) for r in ranks])
-    idx = np.argsort(mr)
-    return idx, mr[idx]
-    
-
-def save_data(path, X, y, subset="a"):
+def save_data(path, X, y, pts, ks, subset="Profiling"):
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    meta = np.empty(X.shape[0], dtype=np.dtype([
+        ("plaintext", np.uint8, (16,)), ("key", np.uint8, (16,)),
+    ]))
+    meta["plaintext"], meta["key"] = pts, ks
 
     with h5py.File(path, 'w') as f:
-        f.create_dataset(f'{subset}_traces/traces', data=X.to_numpy(dtype=np.int8))
-        f.create_dataset(f'{subset}_traces/labels', data=y.to_numpy(dtype=np.uint8))
+        grp = f.create_group(f"{subset}_traces")
+        grp.create_dataset('traces', data=np.asarray(X, dtype=np.int8))
+        grp.create_dataset('labels', data=np.asarray(y, dtype=np.uint8))
+        grp.create_dataset('metadata', data=meta)
+
+
+def cv(
+    model, X, y, pts, ks, n_repeats=5, n_splits=2, 
+    verbose=True, seed=None, skip_last=False
+):       
+    X = pd.DataFrame(X)
+    y = pd.Series(y)
+    pts = pd.DataFrame(pts)
+    ks = pd.DataFrame(ks)
+
+    kf = RepeatedStratifiedKFold(
+            n_splits=n_splits, 
+            n_repeats=n_repeats, 
+            random_state=seed)
+    cumscore = 0
+    
+    for i, (prof_idx, atk_idx) in enumerate(kf.split(X, y)):
+        if skip_last and (i + 1) % n_splits == 0: continue
+
+        X_prof, y_prof = X.iloc[prof_idx], y.iloc[prof_idx]
+        X_atk, pts_atk, ks_atk = (X.iloc[atk_idx], pts.iloc[atk_idx], 
+                                  ks.iloc[atk_idx])
+    
+        model.fit(X_prof, y_prof)
+        probs = model.predict_proba(X_atk)
+        
+        scores = PI(probs, pts_atk, ks_atk)
+        cumscore += np.mean(scores)
+
+        if verbose: logging.info(f"[{i + 1}] Mean PI: {np.mean(scores):.3f}")
+        
+    return cumscore / (n_splits * n_repeats) 
+
+
+def feature_importances(model, X, y, pts, ks, seed=None):
+    _ = cv(model, X, y, pts, ks, n_repeats=1, skip_last=True, seed=seed)    
+    rf = model.named_steps['randomforestclassifier']
+    importances = rf.feature_importances_
+    idx = np.argsort(importances)[::-1]
+    return importances, idx
+
+
+def n_feats_search(model, X, y, pts, ks, feat_rank, n_list, n_repeats=5, seed=None):
+    results = {'n_feats': [], 'PI': []}
+    prev_score = None
+
+    for n_feats in n_list:
+        score = cv(
+            model, X[:, feat_rank[:n_feats]], y, pts, ks,
+            n_repeats=n_repeats, verbose=False, seed=seed,
+        )
+
+        logging.info(f"Mean PI (n_feats={n_feats}): {score:.2e}")
+
+        results['n_feats'].append(n_feats)
+        results['PI'].append(score)
+
+        if prev_score is not None and prev_score > score:
+            break
+
+        prev_score = score
+
+    return pd.DataFrame(results)
+
+
+
+def split_idx(X, y, seed=None):
+    return next(StratifiedKFold(2, shuffle=True, random_state=seed).split(X, y))
+
+
+def rf_feature_importances(X, y, pts, ks, seed, max_depth=5):
+    pl = make_pipeline(
+        StandardScaler(),
+        RFC(max_depth=max_depth, n_jobs=-1, min_samples_leaf=10, random_state=seed)
+    )
+    return feature_importances(pl, X, y, pts, ks, seed=seed)
+
+
+@dataclass(eq=False)
+class LGBValidateEvery:
+    X_atk: np.ndarray
+    pts_atk: np.ndarray
+    ks_atk: np.ndarray
+    patience: int = field(default=50)
+    check_every: int = field(default=10)
+
+    def __post_init__(self):
+        self.best_score = -float('inf')
+        self.best_iter = 0
+        self.no_improvement_count = 0
+        self.history = []
+
+    def __call__(self, env):
+        iteration = env.iteration
+
+        if (iteration + 1) % self.check_every != 0:
+            return
+
+        proba = env.model.predict(self.X_atk, num_iteration=iteration)
+        proba = proba.reshape(len(self.X_atk), 256, order='F')
+
+        score = np.mean(PI(proba, self.pts_atk, self.ks_atk))
+        self.history.append((iteration, score))
+
+        if score > self.best_score:
+            self.best_score = score
+            self.best_iter = iteration
+            self.no_improvement_count = 0
+            print(f"[SCA] Iter {iteration+1}: NEW BEST Score: {score:.4f}")
+        else:
+            self.no_improvement_count += 1
+            print(f"[SCA] Iter {iteration+1}: Score: {score:.4f} (No improv: {self.no_improvement_count})")
+
+        if self.no_improvement_count >= (self.patience / self.check_every):
+            print(f"Early stopping at iteration {iteration+1}. Best score: {self.best_score:.4f} at {self.best_iter+1}")
+            raise lgb.callback.EarlyStopException(self.best_iter, self.best_score)

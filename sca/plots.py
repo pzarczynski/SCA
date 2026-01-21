@@ -43,11 +43,6 @@ def ticklabsp(ax, kind, rot=0, fs=14):
          f"rotation={rot}, fontsize={fs})")
 
 
-def plot_trace_outliers(X, std=4):
-    df, n_outliers = helpers.detect_outliers_std(X, std=std)
-    
-    return fig
-
 def features_hist(X, idx, mean=False, figsize=(7, 4)):
     idx = sorted(idx)
 
@@ -124,8 +119,6 @@ def class_hist(y, figsize=(14, 4)):
     return fig
 
 
-
-
 def plot_feature_means(X, y, idx, figsize=(8, 5)):
     means = np.zeros((len(idx), len(np.unique(y))))
 
@@ -183,51 +176,6 @@ def plot_feature_means(X, y, idx, figsize=(8, 5)):
     sns.despine(trim=True)
     fig.tight_layout()
     return fig
-
-
-def plot_feature_anomalies(
-    df,
-    min_count=50,
-    bins=[-np.inf, 4, 5, 6, 7, 10, np.inf],
-    labels=["<4σ", "4–5σ", "5–6σ", "6–7σ", "7–10σ", ">10σ"],
-    figsize=(9, 5),
-):
-    df = df.copy()
-    df["Bin"] = pd.cut(df["Z-score"], bins=bins, labels=labels, right=True)
-
-    df_feat = (
-        df.groupby(["Trace", "Bin"], observed=False)
-        .size()
-        .unstack(fill_value=0)
-        .reset_index()
-    )
-
-    df_feat["Total"] = df_feat[labels].sum(axis=1)
-    df_feat = df_feat.sort_values("Total", ascending=False)
-    df_feat = df_feat[df_feat["Total"] >= min_count]
-
-    fig, ax = plt.subplots(figsize=figsize)
-
-    x = np.arange(len(df_feat["Trace"]))
-    bottom = np.zeros(len(df_feat))
-
-    for c in labels:
-        ax.bar(x, df_feat[c], bottom=bottom, label=c)
-        bottom += df_feat[c].to_numpy()
-
-    ax.set_xlabel("Trace")
-    ax.set_ylabel("Count of outliers")
-    ax.set_title(f"Outliers distribution (min count = {min_count})")
-    ax.set_xticks(x)
-    ax.set_xticklabels(df_feat["Trace"], rotation=60)
-
-    ax.legend(title="Standard deviation")
-    ax.grid(axis="y")
-
-    sns.despine(ax=ax)
-    fig.tight_layout()
-    return fig
-
 
 
 

@@ -12,12 +12,10 @@ W projekcie wykorzystuję zbiór danych [ASCAD v1 variable key](https://github.c
 
 ### Cel
 
-Celem jest pozyskanie klucza, którego kontroler używa do szyfrowania danych, na podstawie zmierzonych wartości pola.
-Teoretycznie jest to możliwe - pole elektromagnetyczne emitowane przez mikrokontroler jest skorelowane z wagą Hamminga przetwarzanych danych.
+Celem jest pozyskanie klucza, którego kontroler używa do szyfrowania danych, na podstawie zmierzonych wartości poboru mocy.
+Teoretycznie jest to możliwe -  pobór mocy mikrokontrolera jest skorelowaneyz wagą Hamminga przetwarzanych danych.
 
 Zadanie to jest klasyfikacją szeregów czasowych, o tyle specyficzną, że poszczególne timestampy możemy traktować również jako cechy, ponieważ ślady są ze sobą zsynchronizowane.
-
-#### [Więcej o danych](reports/ASCAD_v1.md)
 
 ### Akumulacja wiarygodności
 
@@ -26,17 +24,18 @@ $$log(P(\hat{z} | T)) = \sum_{i=0}^{N}{log(P(\hat{z} | T_i))} $$
 
 ### Ewaluacja
 
-Metryka GuessingEntropy mierzy oczekiwaną liczbę zgadywań, jakie atakujący musi wykonać, testując klucze w kolejności od najbardziej do najmniej prawdopodobnego według modelu.
-Do ewaluacji modelu będę wykorzystywać MeanGE, czyli średnią z GE dla każdego momentu akumulacji podczas ataku.
+Metryka Perceived Information mierzy ile średnio bitów klucza model odzyskuje na próbkę.
 
-$$MeanGE(k, T^{(z)}) = \frac{1}{\hat{Z}}\sum_{i=0}^{\hat{Z}}{GE(z, P(z|T_{0...i}^{(z)}))}$$
+$$PI(k, X^{(k)}) = H + \frac{1}{N}\sum_{i=0}^{N}{log(P(k | X^{(k)}_i))}$$
 
-$T^{(z)}$ - ślady z etykietą $z$; $T_{0...i}$ ślady od 0 do $i$.
+$X^{(k)}$ - ślady dla danego klucza $k$.
 
-Można zauważyć, że metryka ta jest uzależniona od kolejności śladów $T^{(z)}$, więc dla pewności można wykonać $L$ eksperymentów z różnie potasowanymi śladami, żeby upewnić się, że niski score nie wynika z korzystnego ułożenia danych.
+### S-box
 
-W przeciwieństwie do Accuracy pozostaje sensowna nawet wtedy, gdy poprawny label $z$ rzadko jest na pozycji 1, ale zwykle pojawia się wysoko w rankingu. Ostateczny score:
+Funkcja S-box to pierwsza nieliniowa operacja w algorytmie AES. Polega ona na podmianie bajtu tekstu jawnego $d$ zmieszanego z bajtem klucza $k$ przy użyciu [tabeli podstawień](https://csrc.nist.gov/files/pubs/fips/197/final/docs/fips-197.pdf#page=20):
 
-$$score = \frac{1}{Z}\sum_{i=0}^{Z}{MeanGE(z_i, T^{(z_i)})}$$
+$$
+z = \mathrm{Sbox}(d \oplus k)
+$$
 
-Gdzie $Z$ - liczba unikalnych etykiet w zbiorze walidacyjnym; $T_{z_i}$ - ślady dla których etykieta to $z_i$.
+Operacja S-box jest wrażliwa, bo jest to punkt, w którym klucz jest po raz pierwszy bezpośrednio mieszany z danymi wejściowymi. Nieliniowość tej operacji ułatwia statystyczne odróżnienie poprawnego klucza od błędnego.
