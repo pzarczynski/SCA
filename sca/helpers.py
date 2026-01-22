@@ -35,8 +35,7 @@ SBOX = np.array([
 
 
 def pi_score(log_proba, pts, k):
-    z = SBOX[pts ^ k]
-    correct_proba = log_proba[np.arange(len(pts)), z] 
+    correct_proba = log_proba[np.arange(len(pts)), SBOX[pts ^ k]] 
     return 8 + np.mean(correct_proba)
 
 
@@ -58,7 +57,7 @@ def load_data(path: str, as_df=False, attack=False):
         ks = meta["key"].astype(np.uint8)
 
     if as_df:
-        return (pd.DataFrame(X).rename(columns=str),  pd.Series(y), 
+        return (pd.DataFrame(X),  pd.Series(y), 
                 pd.DataFrame(pts), pd.DataFrame(ks))
         
     return X, y, pts, ks
