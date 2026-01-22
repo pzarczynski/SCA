@@ -1,5 +1,0 @@
-1) sprawdzić czy cechy z RF pokrywaja sie z tymi wskazanymi statystycznie na pełnych danych
-2) "macierz pomyłek"
-3) trenowanie na wagach hamminga
-4) porownanie z DL (MLP, CNN)
-5) ew. jak znalezć okno zainteresowania w surowych danych

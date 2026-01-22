@@ -14,7 +14,6 @@ from sklearn.preprocessing import StandardScaler
 
 import lightgbm as lgb
 
-
 SBOX = np.array([
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -42,7 +41,7 @@ def pi_score(log_proba, pts, k):
 
 
 def PI(proba, pts, ks, eps=1e-40):
-    pts, ks = pts.iloc[:, 2], ks.iloc[:, 2]
+    pts, ks = pts[:, 2], ks[:, 2]
     log_proba = np.log2(np.maximum(proba, eps))
     return np.array([pi_score(log_proba[ks == k], pts[ks == k], k) 
                      for k in range(256)])
@@ -59,7 +58,7 @@ def load_data(path: str, as_df=False, attack=False):
         ks = meta["key"].astype(np.uint8)
 
     if as_df:
-        return (pd.DataFrame(X), pd.Series(y), 
+        return (pd.DataFrame(X).rename(columns=str),  pd.Series(y), 
                 pd.DataFrame(pts), pd.DataFrame(ks))
         
     return X, y, pts, ks
