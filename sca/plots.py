@@ -3,134 +3,65 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy import stats
 
-def sample_trace(X, y, byte_val, seed=42):
-    mask = y == byte_val
-    rng = np.random.default_rng(seed=seed)
-    idx = rng.integers(0, np.sum(mask))
-    trace = X[mask].iloc[idx]
-    return trace
+from sca import util as h
+
 
 def labs(ax, xlab="", ylab="", title="", **kw):
-    ax.set_title(title, **kw)
-    ax.set_xlabel(xlab, **kw)
-    ax.set_ylabel(ylab, **kw)
+    ax.set_title(title, **kw, size=16)
+    ax.set_xlabel(xlab, **kw, size=14)
+    ax.set_ylabel(ylab, **kw, size=14)
     return ax
 
-def lim(ax, l):
-    ax.set_xlim(0, l-1)
-    return ax
 
-def mean_std(X):
-    return X.mean(axis=0), X.std(axis=0)
+def savetight(fig, name, **kw):
+    fig.savefig(f"figures/{name}.png", bbox_inches='tight', pad_inches=0.02, dpi=300)
 
-def std_band(ax, m, std, sd=3):
-    xaxis = np.arange(len(m))
+
+def std_band(ax, m, std, sd=3, x=None, color='lightgray', alpha=0.3):
+    xaxis = np.arange(len(m)) if x is None else x
     lower = m - sd * std
     upper = m + sd * std
-    ax.fill_between(xaxis, lower, upper, color="gray", alpha=0.7, label=f"±{sd} std")
+    ax.fill_between(xaxis, lower, upper, color=color, alpha=alpha)
     return ax
 
-def filtered_corr(X, t=0.2, p=0.75):
-    corr = pd.DataFrame(np.corrcoef(X, rowvar=False))
-    mask = np.mean(np.abs(corr) >= t, axis=0) >= p
-    return corr[mask].loc[:, mask]
 
 
-def ticklabsp(ax, kind, rot=0, fs=14):
+def center0(axarr):
+    y_min, y_max = zip(*(ax.get_ylim() for ax in axarr.ravel()))
+    y_abs_max = max(abs(min(y_min)), abs(max(y_max)))
+    for ax in axarr.ravel():
+        ax.set_ylim(-y_abs_max, y_abs_max)
+
+
+def rot_labels(axarr, rot=45, kind='x'):
+    axarr = np.array(axarr)
+    for ax in axarr.ravel():
+        ticklabsp(ax, kind, rot=rot)
+
+
+def ticklabsp(ax, kind, rot=0):
     eval(f"ax.set_{kind}ticklabels(ax.get_{kind}ticklabels(),"
-         f"rotation={rot}, fontsize={fs})")
+         f"rotation={rot})")
 
 
-def features_hist(X, idx, mean=False, figsize=(7, 4)):
-    idx = sorted(idx)
-
-    fig = plt.figure(figsize=figsize, constrained_layout=True)
-    gs = gridspec.GridSpec(1, 2, width_ratios=[9, 1], wspace=0.05, figure=fig)
-
-    ax = fig.add_subplot(gs[0, 0])
-    cm = sns.color_palette("viridis", len(idx) + 1, as_cmap=True)
-    norm = plt.Normalize(vmin=0, vmax=max(idx))
-
-    for i in idx:
-        sns.histplot(
-            X.iloc[:, i],
-            edgecolor="black",
-            discrete=True,
-            color=cm(norm(i)),
-            stat="density",
-            ax=ax,
-        )
-        ax.set_xlabel("Value")
-        ax.set_ylabel("Density")
-
-    lo, hi = np.percentile(X.iloc[:, idx].values, [1e-3, 100 - 1e-3])
-    ax.set_xlim(lo, hi)
-
-    if mean:
-        ax.axvline(X.mean().mean(), color="black", linestyle="--")
-
-    ax.set_title(f"Distribution of features")
-
-    ax_legend = fig.add_subplot(gs[0, 1])
-    ax_legend.axis("off")
-
-    old_legend = ax.legend([f"{i}" for i in idx], title="Feature")
-    handles = old_legend.legend_handles
-    labels = [t.get_text() for t in old_legend.get_texts()]
-    title = old_legend.get_title().get_text()
-
-    ax_legend.legend(handles, labels, title=title, loc="center left", frameon=False)
-    old_legend.remove()
-
-    sns.despine(ax=ax)
-    return fig
+def plot_mean_std(X, figsize=(8, 5), ax=None, color='gray', alpha=0.7):
+    if ax is None: _, ax = plt.subplots(figsize=figsize)
+    m, sd = h.mean_std(X)
+    ax.plot(range(len(m)), m, linewidth=1, color='black')
+    ax.set_xlim (0, len(m))
+    std_band(ax, m, sd, color=color, alpha=alpha)
+    ax.grid(True, linestyle="--", alpha=0.8)
+    return ax.figure, ax
 
 
-def dist_plots(X, figsize=(10, 4)):
-    sk = stats.skew(X, axis=0, bias=False)
-    kt = stats.kurtosis(X, axis=0, fisher=True, bias=False)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
-    sns.histplot(sk, ax=ax1, bins=30, stat="density", color="gray", edgecolor="black")
-    ax1.set_xlabel("Skewness")
-    ax1.set_ylabel("Density")
-    ax1.set_title("Skewness distribution")
-
-    sns.histplot(kt, ax=ax2, bins=30, stat="density", color="gray", edgecolor="black")
-    ax2.set_xlabel("Kurtosis")
-    ax2.set_ylabel("")
-    ax2.set_title("Kurtosis distribution")
-
-    # fig.tight_layout()
-    sns.despine(fig)
-    return fig
-
-
-def class_hist(y, figsize=(14, 4)):
-    fig, ax = plt.subplots(figsize=figsize)
-    sns.histplot(y, discrete=True, edgecolor="black", ax=ax)
-    ax.set_xlabel("Label")
-    ax.set_title("Count of labels")
-    ax.set_xlim(-0.5, 255.5)
-    sns.despine(ax=ax, right=False)
-    fig.tight_layout()
-    return fig
-
-
-def plot_feature_means(X, y, idx, figsize=(8, 5)):
-    means = np.zeros((len(idx), len(np.unique(y))))
-
-    for i, w in enumerate(np.unique((y))):
-        means[:, i] = X[y == w].iloc[:, idx].mean().values
-
+def plot_feature_means(X, y, figsize=(8, 5)):
+    means = np.array([X[y == w].mean().values for w in np.unique(y)]).T
     means -= means.mean(axis=1, keepdims=True)
 
     df = pd.DataFrame(means.T)
     df = df.reset_index(names="label")
     df = pd.melt(df, id_vars="label", var_name="feature")
-    df["feature"] = df["feature"].map({i: idx for i, idx in enumerate(idx)})
 
     fig, ax = plt.subplots(figsize=figsize)
     cmap = sns.color_palette("viridis", n_colors=len(np.unique(y)), as_cmap=True)
@@ -170,7 +101,7 @@ def plot_feature_means(X, y, idx, figsize=(8, 5)):
     ax.set_xlabel("Feature index")
     ax.set_ylabel("Centered mean")
     ax.set_title("Centered feature means by labels")
-    ax.set_xticks(range(len(np.unique(idx))))
+    ax.set_xticks(range(X.shape[1]))
     ax.set_xticklabels(df["feature"].unique(), rotation=90)
 
     sns.despine(trim=True)
@@ -178,22 +109,142 @@ def plot_feature_means(X, y, idx, figsize=(8, 5)):
     return fig
 
 
+def plot_scores(scores, n=10):
+    df = pd.DataFrame(scores, columns=["Score"]).reset_index(names="Key")
+    df["Key"] = df["Key"].astype(str) + '/' + [str(x) for x in h.hw(df["Key"])]
+    df = df.sort_values("Score", ascending=False)
 
-def simple_lineplots(
-    x, *y, labels=None, xlabel="", ylabel="", palette="husl", figsize=(10, 5)
-):
-    fig, ax = plt.subplots(figsize=figsize)
-    cmap = sns.color_palette(palette, n_colors=len(y))
+    fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(5, 6))
 
-    for i, series in enumerate(y):
-        label = labels[i] if labels is not None else None
-        sns.lineplot(x=x, y=series, label=label, color=cmap[i], ax=ax)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+    ax1.bar(df["Key"].iloc[:n], df["Score"].iloc[:n], width=0.9)
+    ax1.set_ylabel("Perceived information")
+    ticklabsp(ax1, 'x', rot=-60)
+    ax1.axhline(0.0, color='k')
+
+    ax2.bar(df["Key"].iloc[-n:], df["Score"].iloc[-n:], width=0.9)
+    ax2.set_ylabel("Perceived information")
+    ticklabsp(ax2, 'x', rot=-60)
+    ax2.axhline(0.0, color='k')
+
+    ax2.set_xlabel("Time samples/HW")
+    fig.tight_layout(h_pad=1.0)
+    return fig
+
+
+def plot_score(means, stds=None, frs=None, n=500, name="Guessing entropy"):
+    fig, ax = plt.subplots(figsize=(11, 4))
+    m = means[:n]
+
+    ax.plot(range(len(m)), m, linewidth=1, label="mean")
+    labs(ax, xlab="Number of traces", ylab=name)
+    ax.set_xlim (0, len(m))
+
+    if stds is not None:
+        std_band(ax, m, stds[:n], sd=1).grid(True, linestyle="--", alpha=0.8)
+
+    if frs is not None:
+        mfrs = np.mean(frs)
+
+        if mfrs < n:
+            if not isinstance(frs, int):
+                mfrs, sdfts = np.mean(frs), np.std(frs)
+                plt.fill_betweenx(ax.get_ylim(), mfrs-sdfts, mfrs+sdfts,
+                                color='red', alpha=0.2, label='Std. deviation band')
+
+            ax.axvline(x=mfrs, color='red', linestyle='--', label='Avg. traces needed')
 
     ax.grid(True, linestyle="--", alpha=0.8)
-    sns.despine(ax=ax, trim=True)
 
-    if labels is not None:
-        ax.legend()
-    return fig
+    ax.legend(loc='upper right')
+    sns.despine(fig=fig)
+    fig.tight_layout()
+    return fig, ax
+
+
+def plot_cv_results(
+    df, title="CV scores", ax=None, xlab='Fold',
+    ylab='Perceived Information', plot_prof=True
+):
+    x = range(len(df))
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6, 4))
+
+    ax.errorbar(x, df["atk_score_mean"],
+                yerr=df["atk_score_std"],
+                fmt="s-", capsize=3, label="Attack",)
+
+    if plot_prof:
+        ax.errorbar(x, df["prof_score_mean"],
+                    yerr=df["prof_score_std"],
+                    fmt="o-", capsize=3, label="Profiling",)
+
+    labs(ax, xlab=xlab, ylab=ylab,
+         title=f"{title}\n"
+               f"Mean score={df['atk_score_mean'].mean():.4f} "
+               f"(±{df['atk_score_mean'].std():.4f})")
+
+    ax.axhline(0.0, color='black', linestyle="--", alpha=0.8, label='Random guessing')
+
+    ax.grid(True, linestyle="--", alpha=0.8)
+    ax.legend()
+    plt.tight_layout()
+    return ax.figure, ax
+
+
+def plot_gs_results(
+    df, title, ax=None, key='n', xlab='POI',
+    ylab='Perceived Information', plot_prof=True, loc=None
+):
+    if isinstance(df, str):
+        df = pd.read_csv(f'data/results/{df}.csv')
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7, 5))
+
+    xaxis = np.arange(df.shape[0])
+
+    ax.errorbar(
+        xaxis, df["atk_score_mean"],
+        yerr=df["atk_score_std"], fmt='o-', loc=None,
+        capsize=3, label="Attack", color='darkblue',
+    )
+
+    ax.grid(True, linestyle="--", alpha=0.8)
+    ax.set_xticks(xaxis)
+
+    ticklabels = df[key].astype(str)
+    if 'expl' in df.columns:
+        ticklabels += ' (' + (df["expl"]*100).astype(int).astype(str) + '%)'
+
+    ax.set_xticklabels(ticklabels)
+    ax.tick_params(axis='y', labelcolor='darkblue')
+
+    i = df['atk_score_mean'].argmax()
+    best_val = df['atk_score_mean'].iloc[i]
+    labs(ax, xlab=xlab, ylab=ylab, title=f"{title}\n"
+            f"Best: {best_val:.4f} "
+            f"(±{df['atk_score_std'].iloc[i]:.4f}) ")
+    ax.scatter(i, best_val, marker='^', s=100, color='red', zorder=3, label='Best score')
+
+    ax.axhline(0.0, color='black', linestyle="--", alpha=0.8, label='Random guessing')
+
+    lines, labels = ax.get_legend_handles_labels()
+
+    if plot_prof:
+        twinx = ax.twinx()
+        twinx.errorbar(
+            xaxis + 0.1, df["prof_score_mean"],
+            yerr=df["prof_score_std"], fmt='s-',
+            capsize=3, label="Profiling", color='brown',
+        )
+        lines_tw, labels_tw = twinx.get_legend_handles_labels()
+        lines, labels = (lines + lines_tw), (labels + labels_tw)
+        twinx.tick_params(axis='y', labelcolor='brown')
+
+    ax.legend(lines, labels, loc=loc)
+    ax.figure.tight_layout()
+
+    if isinstance(df, str):
+        ax.figure.savefig(f"figures/{df}.png", bbox_inches='tight',
+                    pad_inches=0.02, dpi=300)
+    return ax.figure, ax
