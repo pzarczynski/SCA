@@ -4,8 +4,8 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
 
-from sca import util
-from sca.util import init_logger, load_data, transform_splits
+from scripts import util
+from scripts.util import init_logger, load_data, transform_splits
 
 SBOX = torch.tensor(util.SBOX, dtype=torch.long)
 LOG2 = torch.log(torch.tensor(2.0))

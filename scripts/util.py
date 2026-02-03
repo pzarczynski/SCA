@@ -58,7 +58,7 @@ def compute_pi(log2_proba, pts, ks):
 
     sum = segment_sum(correct, ks, n_classes)
     den = segment_sum(jnp.ones_like(correct), ks, n_classes)
-    return 8.0 + (sum / jnp.maximum(den, 1.0))
+    return (8.0 + (sum / jnp.maximum(den, 1.0)),)
 
 
 def load_data(path='data/processed/ASCADv.h5', attack=False, tgt_only=True):
@@ -125,10 +125,8 @@ def _pge(log_proba2, pts, ks):
     correct_ranks = np.where(all_pge == ks[:, None])[1]
     first_rank0 = np.where(correct_ranks == 0)[0]
 
-    if first_rank0.size == 0:
-        first_rank0 = n_traces - 1
-
-    return correct_ranks + 1, first_rank0 + 1
+    first_rank0 = n_traces if first_rank0.size == 0 else first_rank0[0] + 1
+    return correct_ranks + 1, first_rank0
 
 
 def compute_pge(log_proba2, pts, ks):
@@ -136,7 +134,7 @@ def compute_pge(log_proba2, pts, ks):
                          for k in np.unique(ks)))
     minlen = np.min(np.array([r.shape[0] for r in all_pge]))
     all_pge = np.array([r[:minlen] for r in all_pge])
-    return np.mean(all_pge, axis=0), np.mean(fr0)
+    return (np.mean(all_pge, axis=0), np.mean(all_pge, axis=0), np.mean(fr0))
 
 
 def save_results(gs, name):

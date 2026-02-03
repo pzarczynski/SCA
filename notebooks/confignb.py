@@ -19,8 +19,8 @@ from tqdm.auto import tqdm, trange
 
 sns.set_theme(style="ticks", palette="dark")
 
-from sca import plots, util
-from sca.cv import cv, cv_precomputed, eval_model
+from scripts import plots, util
+from scripts.cv import cv, cv_precomputed, eval_model
 
 util.init_logger()
 

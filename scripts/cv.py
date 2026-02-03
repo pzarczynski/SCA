@@ -6,7 +6,7 @@ from joblib import Parallel, delayed
 from scipy import stats
 from sklearn.base import clone
 
-from sca import util
+from scripts import util
 
 
 def _cv_single_fold(
@@ -21,11 +21,11 @@ def _cv_single_fold(
 
     proba_prof = model.predict_proba(X_prof)
     log2_proba_prof = np.log2(proba_prof + 1e-15)
-    scores_prof = score_fn(log2_proba_prof, pts_prof, ks_prof)
+    scores_prof, *prof_aux = score_fn(log2_proba_prof, pts_prof, ks_prof)
 
     proba_atk = model.predict_proba(X_atk)
-    log2_proba = np.log2(proba_atk + 1e-15)
-    scores_atk = score_fn(log2_proba, pts_atk, ks_atk)
+    log2_proba_atk = np.log2(proba_atk + 1e-15)
+    scores_atk, *atk_aux = score_fn(log2_proba_atk, pts_atk, ks_atk)
 
     if verbose:
         logging.info(f"FOLD {i+1}: "
@@ -33,16 +33,20 @@ def _cv_single_fold(
                      f"ATK={np.mean(scores_atk):.4f}")
 
     return (np.mean(scores_prof), np.std(scores_prof),
-            np.mean(scores_atk),  np.std(scores_atk))
+            np.mean(scores_atk),  np.std(scores_atk),
+            prof_aux,             atk_aux)
 
 
 def _results_to_df(results):
     (scores_prof_mean, scores_prof_std,
-     scores_atk_mean, scores_atk_std) = zip(*results)
-    return pd.DataFrame({'prof_score_mean': np.array(scores_prof_mean),
+     scores_atk_mean, scores_atk_std,
+     *aux) = zip(*results)
+
+
+    return (pd.DataFrame({'prof_score_mean': np.array(scores_prof_mean),
                          'prof_score_std' : np.array(scores_prof_std),
                          'atk_score_mean' : np.array(scores_atk_mean),
-                         'atk_score_std'  : np.array(scores_atk_std)})
+                         'atk_score_std'  : np.array(scores_atk_std)}), aux)
 
 def cv(
     seed, model,
@@ -100,8 +104,11 @@ def cv_precomputed(
 
 
 def eval_model(
-    seed, model, X_prof, y_prof, pts_prof, ks_prof,
-    X_atk, pts_atk, ks_atk, n_repeats=1, n_jobs=-1, verbose=True
+    seed, model,
+    X_prof, y_prof, pts_prof, ks_prof,
+    X_atk, pts_atk, ks_atk,
+    score_fn=util.compute_pge, n_repeats=1,
+    n_jobs=1, verbose=True
 ):
     rng = np.random.default_rng(seed)
     jobs = []
@@ -114,7 +121,7 @@ def eval_model(
 
         jobs.append(
             delayed(_cv_single_fold)(
-                i, model, util.compute_pi,
+                i, model, score_fn,
                 X_prof, y_prof, pts_prof, ks_prof,
                 X_atk_shuffled, pts_atk_shuffled,
                 ks_atk_shuffled, verbose=verbose
@@ -125,18 +132,3 @@ def eval_model(
         n_jobs=n_jobs, backend='loky',
         verbose=1 if verbose else 0,
     )(jobs))
-
-
-def eval_and_plot(seed, model, eval_fn=eval_model, n_repeats=50, atk_data='data/raw/ASCADv.h5',
-                  prof_data='data/processed/ASCADv_clean.h5'):
-    X_atk, _, pts_atk, ks_atk = load_data(atk_data, as_numpy=True, attack=True)
-    kw = {'seed': seed, 'model': model, 'n_repeats': n_repeats,
-          'X_atk': X_atk, 'pts_atk': pts_atk, 'ks_atk': ks_atk}
-
-    if prof_data is not None:
-        X, y, *_ = load_data(prof_data, as_numpy=True, attack=False)
-        kw['X'], kw['y'] = X, y
-
-    means, stds, frs = eval_fn(**kw)
-    fig = p.plot_pge(means, frs, stds)
-    return means, stds, frs, fig

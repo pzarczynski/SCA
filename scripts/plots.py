@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from sca import util as h
+from scripts import util
 
 
 def labs(ax, xlab="", ylab="", title="", **kw):
@@ -47,7 +47,7 @@ def ticklabsp(ax, kind, rot=0):
 
 def plot_mean_std(X, figsize=(8, 5), ax=None, color='gray', alpha=0.7):
     if ax is None: _, ax = plt.subplots(figsize=figsize)
-    m, sd = h.mean_std(X)
+    m, sd = util.mean_std(X)
     ax.plot(range(len(m)), m, linewidth=1, color='black')
     ax.set_xlim (0, len(m))
     std_band(ax, m, sd, color=color, alpha=alpha)
