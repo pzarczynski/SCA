@@ -28,8 +28,8 @@ def download_dataset(ds: str, out: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--dataset", type=str, default="v1/variable/desync0.h5")
-    parser.add_argument("-o", "--out", type=str, default="data/raw/ASCADv.h5")
+    parser.add_argument("-d", "--dataset", type=str, default="v1/variable/desync0_clean.h5")
+    parser.add_argument("-o", "--out", type=str, default="data/processed/ASCADv.h5")
     args = parser.parse_args()
 
     download_dataset(args.dataset, args.out)

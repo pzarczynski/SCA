@@ -3,3 +3,4 @@ jupyter
 ipywidgets
 pipreqs
 pipreqsnb
+hf

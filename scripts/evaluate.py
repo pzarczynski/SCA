@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel, SelectKBest, f_classif
 from sklearn.linear_model import LogisticRegression
@@ -61,3 +60,4 @@ if __name__ == "__main__":
                 "Random guessing",
                 "Key rank = 1"])
     plots.savetight(fig, "09_pl_ascadv1")
+    plt.show()
