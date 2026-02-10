@@ -20,7 +20,7 @@ from tqdm.auto import tqdm, trange
 sns.set_theme(style="ticks", palette="dark")
 
 from scripts import plots, util
-from scripts.cv import cv, cv_precomputed, eval_model
+from scripts.cv import cv, cv_precomputed, eval_model, eval_onnx
 
 util.init_logger()
 

@@ -26,7 +26,6 @@ def std_band(ax, m, std, sd=3, x=None, color='lightgray', alpha=0.3):
     return ax
 
 
-
 def center0(axarr):
     y_min, y_max = zip(*(ax.get_ylim() for ax in axarr.ravel()))
     y_abs_max = max(abs(min(y_min)), abs(max(y_max)))
@@ -55,8 +54,8 @@ def plot_mean_std(X, figsize=(8, 5), ax=None, color='gray', alpha=0.7):
     return ax.figure, ax
 
 
-def plot_feature_means(X, y, figsize=(8, 5)):
-    means = np.array([X[y == w].mean().values for w in np.unique(y)]).T
+def plot_feature_means(X, y, figsize=(8, 5), box=True):
+    means = np.array([X[y == w].mean(axis=0) for w in np.unique(y)]).T
     means -= means.mean(axis=1, keepdims=True)
 
     df = pd.DataFrame(means.T)
@@ -78,18 +77,19 @@ def plot_feature_means(X, y, figsize=(8, 5)):
         ax=ax,
     )
 
-    sns.boxplot(
-        data=df,
-        x="feature",
-        y="value",
-        color="white",
-        width=0.6,
-        fliersize=0,
-        showcaps=True,
-        boxprops={"zorder": 0},
-        whiskerprops={"linewidth": 0.8},
-        ax=ax,
-    )
+    if box:
+        sns.boxplot(
+            data=df,
+            x="feature",
+            y="value",
+            color="white",
+            width=0.6,
+            fliersize=0,
+            showcaps=True,
+            boxprops={"zorder": 0},
+            whiskerprops={"linewidth": 0.8},
+            ax=ax,
+        )
 
     ax.grid(axis="y", linestyle="-", alpha=0.7)
     ax.legend_.remove()
@@ -98,11 +98,11 @@ def plot_feature_means(X, y, figsize=(8, 5)):
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     plt.colorbar(sm, ax=ax, pad=0.02, label="Label")
 
-    ax.set_xlabel("Feature index")
+    ax.set_xlabel("Time samples")
     ax.set_ylabel("Centered mean")
     ax.set_title("Centered feature means by labels")
-    ax.set_xticks(range(X.shape[1]))
-    ax.set_xticklabels(df["feature"].unique(), rotation=90)
+    ax.set_xticks([])
+    # ax.set_xticklabels(df["feature"].unique(), rotation=90)
 
     sns.despine(trim=True)
     fig.tight_layout()

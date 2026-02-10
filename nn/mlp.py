@@ -1,5 +1,6 @@
 import csv
 import logging
+import os
 
 import torch
 import torch.nn as nn
@@ -93,6 +94,7 @@ if __name__ == "__main__":
 
     util.init_logger()
 
+    os.makedirs('logs', exist_ok=True)
     log_writer = csv.writer(open('logs/mlp.csv', 'w', newline=''))
     log_writer.writerow(['epoch', 'train_pi', 'val_pi'])  # , 'lr'])
 
@@ -139,11 +141,13 @@ if __name__ == "__main__":
             best_val_loss = val_pi
             torch.onnx.export(
                 model,
-                torch.randn(1, 1400, dtype=torch.float32).to(device),
+                (torch.randn(1, 1400, dtype=torch.float32).to(device),),
                 'nn/mlp.onnx',
+                dynamo=True,
                 input_names=['input'],
                 output_names=['output'],
+                dynamic_shapes=(({0: torch.export.Dim("batch", min=1)},),),
             )
-            logging.info(f"Best model saved")
+            logging.info("Best model saved")
 
         scheduler.step()
