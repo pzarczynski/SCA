@@ -1,0 +1,21 @@
+[package]
+name = "sca_fused_ops"
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "sca_fused_ops"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27.0", features = ["extension-module"] }
+numpy = "0.27"
+ndarray = { version = "0.17", features = ["rayon"] } 
+rayon = "1.10"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "abort"

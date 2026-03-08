@@ -2,9 +2,9 @@ import logging
 
 import numpy as np
 import pandas as pd
-from jax import nn
 from joblib import Parallel, delayed
 from scipy import stats
+import scipy.special
 from sklearn.base import clone
 from tqdm.auto import trange
 
@@ -137,19 +137,19 @@ def eval_model(
 
 
 def eval_onnx(
-    seed, sess, X_atk, pts_atk, ks_atk, n_repeats=1
+    seed, sess, X_atk, pts_atk, ks_atk, mean, std, n_repeats=1
 ):
     rng = np.random.default_rng(seed)
     results = []
 
     for i in trange(n_repeats):
         idx = rng.permutation(X_atk.shape[0])
-        X_atk_shuffled = X_atk[idx]
+        X_atk_shuffled = (X_atk[idx] - mean) / std
         pts_atk_shuffled = pts_atk[idx]
         ks_atk_shuffled = ks_atk[idx]
 
         logits = sess.run(None, {'input': X_atk_shuffled.astype(np.float32)})[0]
-        log2_proba = nn.log_softmax(logits, axis=1)
+        log2_proba = scipy.special.log_softmax(logits, axis=1) / np.log(2.0)
 
         scores, *aux = util.compute_pge(log2_proba, pts_atk_shuffled, ks_atk_shuffled)
         results.append((np.mean(scores), np.std(scores), 

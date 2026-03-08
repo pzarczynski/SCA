@@ -1,34 +1,66 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import SelectFromModel, SelectKBest, f_classif
+from sklearn.feature_selection import SelectFromModel
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.base import TransformerMixin, BaseEstimator, check_is_fitted
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.preprocessing import QuantileTransformer
 
+from functools import partial
 from scripts import plots, util
 from scripts.cv import eval_model
+
+from sca_fused_ops import fused_select_poly, fused_transform_poly
 
 SEED = 42
 
 
+class FusedSelectPolynomial(BaseEstimator, TransformerMixin):
+    def __init__(self, select: int, k: int = 0) -> None:
+        self.select = select
+        self.k = k
+
+    def fit(self, X, y):
+        idx, self.means, self.scales = fused_select_poly(
+            X.astype(np.float32), 
+            y.astype(np.uint64),
+            int(np.max(y)) + 1, 
+            int(self.select), 
+            int(self.k),
+        )
+        _, self.ix, self.jx = map(partial(np.array, dtype=np.uint64), zip(*idx))
+        return self
+
+    def transform(self, X):
+        check_is_fitted(self, ("ix", "jx", "means", "scales"))
+        out = fused_transform_poly(
+            np.asarray(X, dtype=np.float32), 
+            self.means, 
+            self.scales, 
+            self.ix,
+            self.jx,
+        )
+        return out
+
 pipeline = make_pipeline(
     SelectFromModel(
-        RandomForestClassifier(
-            n_estimators=300,
-            max_depth=15,
+        ExtraTreesClassifier(
+            n_estimators=100,
+            max_depth=8,
             min_samples_leaf=500,
+            max_features='sqrt',
             random_state=SEED,
             n_jobs=-1,
         ),
         max_features=100,
     ),
-    StandardScaler(),
-    PolynomialFeatures(degree=(2, 2), interaction_only=True, include_bias=False),
-    SelectKBest(score_func=f_classif, k=750),
+    FusedSelectPolynomial(select=750),
+    # PowerTransformer(method='yeo-johnson'),
     LinearDiscriminantAnalysis(solver='eigen', shrinkage='auto', n_components=5),
     LogisticRegression(C=1e-2, random_state=SEED)
+    # GaussianNB()
 )
 
 

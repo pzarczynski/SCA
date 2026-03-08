@@ -1,6 +1,5 @@
-ipykernel
-jupyter
-ipywidgets
-pipreqs
-pipreqsnb
-hf
+ipykernel~=7.2.0
+jupyter~=1.1.1
+ipywidgets~=8.1.8
+maturin~=1.12.6
+pipreqs~=0.4.13
